@@ -26,11 +26,12 @@ import (
 	"k8s.io/client-go/tools/record"
 	cloudprovider "k8s.io/cloud-provider"
 
+	"github.com/hetznercloud/hcloud-go/v2/hcloud"
+
 	"github.com/hetznercloud/hcloud-cloud-controller-manager/internal/config"
 	"github.com/hetznercloud/hcloud-cloud-controller-manager/internal/metrics"
 	"github.com/hetznercloud/hcloud-cloud-controller-manager/internal/providerid"
 	"github.com/hetznercloud/hcloud-cloud-controller-manager/internal/robot"
-	"github.com/hetznercloud/hcloud-go/v2/hcloud"
 )
 
 type instances struct {
@@ -191,9 +192,15 @@ func hcloudNodeAddresses(addressFamily config.AddressFamily, networkID int64, se
 
 	if addressFamily == config.AddressFamilyIPv4 || addressFamily == config.AddressFamilyDualStack {
 		if !server.PublicNet.IPv4.IsUnspecified() {
+			//addresses = append(
+			//	addresses,
+			//	corev1.NodeAddress{Type: corev1.NodeExternalIP, Address: server.PublicNet.IPv4.IP.String()},
+			//)
+
+			// hack: use the internal IP
 			addresses = append(
 				addresses,
-				corev1.NodeAddress{Type: corev1.NodeExternalIP, Address: server.PublicNet.IPv4.IP.String()},
+				corev1.NodeAddress{Type: corev1.NodeExternalIP, Address: server.PrivateNet[0].IP.String()},
 			)
 		}
 	}
@@ -244,10 +251,20 @@ func robotNodeAddresses(addressFamily config.AddressFamily, server *hrobotmodels
 	}
 
 	if addressFamily == config.AddressFamilyIPv4 || addressFamily == config.AddressFamilyDualStack {
-		addresses = append(
-			addresses,
-			corev1.NodeAddress{Type: corev1.NodeExternalIP, Address: server.ServerIP},
-		)
+		// hack to test
+		// problem: robot api has no access to internal ip's
+		if server.Name == "pace02" {
+			addresses = append(
+				addresses,
+				corev1.NodeAddress{Type: corev1.NodeExternalIP, Address: "10.0.1.2"},
+			)
+		} else {
+			addresses = append(
+				addresses,
+				corev1.NodeAddress{Type: corev1.NodeExternalIP, Address: server.ServerIP},
+			)
+		}
+
 	}
 
 	return addresses
